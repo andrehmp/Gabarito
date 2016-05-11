@@ -19,6 +19,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import java.lang.Math.*;
 
+import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
@@ -51,6 +52,7 @@ public class Main2Activity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
         ImageView  result = (ImageView) findViewById(R.id.camera_result);
@@ -69,18 +71,16 @@ public class Main2Activity extends AppCompatActivity {
 
         Mat source = new Mat();
         Utils.bitmapToMat(bmp, source);
-        Imgproc.blur(source, source, new Size(3, 3));
         Imgproc.cvtColor(source, source, Imgproc.COLOR_BGR2GRAY, 0);
-
-
-        source.convertTo(source, CvType.CV_8UC1, 255.0);
-        Imgproc.adaptiveThreshold(source, source, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 301,100);
+        Imgproc.adaptiveThreshold(source, source, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 51, 30);
+        //Utils.matToBitmap(source,bmp);
         Imgproc.Canny(source, source, 100, 100);
 
-        Mat mLines = new Mat(source.rows(), source.cols(), CvType.CV_8UC1);
-        Imgproc.HoughLinesP(source,mLines, 1, Math.PI/180, 100, 50, 40);
+
 
         LinkedList<LinkedList<Integer>> lines = new LinkedList<>();
+        Mat mLines = new Mat(source.rows(), source.cols(), CvType.CV_8UC1);
+        Imgproc.HoughLinesP(source, mLines, 1, Math.PI / 180, 35, 14, 1);
         for (int i = 0; i < mLines.cols(); i++)
         {
             double vCircle[] = mLines.get(0,i);
@@ -91,7 +91,22 @@ public class Main2Activity extends AppCompatActivity {
             }
             lines.add(l);
         }
-        LinkedList<Point> corners = getCorners(lines);
+
+
+        LinkedList<Point> corners = getCorners(lines,source);
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         double x1 = 0;
         double y1 = source.height();
@@ -125,9 +140,6 @@ public class Main2Activity extends AppCompatActivity {
             }
         }
 
-
-
-
         Mat src = new Mat(4,1,CvType.CV_32FC2);
         src.put(0,0,x2, y2);
         src.put(1,0,x3, y3);
@@ -149,15 +161,11 @@ public class Main2Activity extends AppCompatActivity {
 
 
 
-
-
-
         Utils.matToBitmap(cropped_image, bmp);
         Canvas canvas = new Canvas(bmp);
         Paint p = new Paint();
         p.setColor(Color.GREEN);
         p.setStrokeWidth(10);
-
         y1=(int)(1.5/13*cropped_image.width());
         y2=(int)(1.5/13*cropped_image.width());
         y3=(int)(5.4/13*cropped_image.width());
@@ -209,14 +217,9 @@ public class Main2Activity extends AppCompatActivity {
     }
 
 
-    private boolean[][] getSets(Mat m_){
+    private boolean[][] getSets(Mat m){
 
-        Mat m=new Mat();
-        Size size = new Size();
-        Imgproc.GaussianBlur(m_,m, size, 0.0001);
         int x1,x2,x3,x4,y1,y2,y3,y4;
-        //p1 p2
-        //p3 p4
         y1=(int)(1.5/13*m.width());
         y2=(int)(1.5/13*m.width());
         y3=(int)(5.4/13*m.width());
@@ -234,13 +237,10 @@ public class Main2Activity extends AppCompatActivity {
                 Mat roi = new Mat(m,rect);
                 Mat mGray = new Mat(roi.rows(), roi.cols(), CvType.CV_8UC1);
                 Imgproc.cvtColor(roi, mGray, Imgproc.COLOR_BGRA2GRAY);
-                mGray.convertTo(mGray, CvType.CV_8UC1, 255.0);
-                //Core.extractChannel(roi, aux,2);
-                mGray.convertTo(mGray, CvType.CV_8UC1, 255.0);
-                Imgproc.adaptiveThreshold(mGray, mGray, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 11, 2);
+                Imgproc.adaptiveThreshold(mGray, mGray, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 51, 25);
 
 
-                if (Core.countNonZero(mGray) > 400)
+                if (Core.countNonZero(mGray) > (mGray.cols()*mGray.rows()*0.905))
                     gabarito[i][j]=true;
                 else
                     gabarito[i][j]=false;
@@ -248,13 +248,8 @@ public class Main2Activity extends AppCompatActivity {
         }
         return gabarito;
     }
-    private boolean[][] getSets2(Mat m_){
-        Mat m=new Mat();
-        Size size = new Size();
-        Imgproc.GaussianBlur(m_,m, size, 0.0001);
+    private boolean[][] getSets2(Mat m){
         int x1,x2,x3,x4,y1,y2,y3,y4;
-        //p1 p2
-        //p3 p4
         y1=(int)(5.9/13*m.width());
         y2=(int)(5.9/13*m.width());
         y3=(int)(7.1/13*m.width());
@@ -266,32 +261,24 @@ public class Main2Activity extends AppCompatActivity {
 
         boolean[][] gabarito= new boolean[10][10];
         for (int i=0;i<10;i++){
-            for (int j=0;j<3;j++){
+            for (int j=0;j<3;j++) {
                 Rect rect = new Rect((int)(y1+j*(y3-y1)/3),(int)(x1+i*(x2-x1)/10),(y3-y1)/3,(x2-x1)/10);
-                Mat roi = new Mat(m,rect);
+                Mat roi = new Mat(m, rect);
                 Mat mGray = new Mat(roi.rows(), roi.cols(), CvType.CV_8UC1);
                 Imgproc.cvtColor(roi, mGray, Imgproc.COLOR_BGRA2GRAY);
-                mGray.convertTo(mGray, CvType.CV_8UC1, 255.0);
-                //Core.extractChannel(roi, aux,2);
-                mGray.convertTo(mGray, CvType.CV_8UC1, 255.0);
-                Imgproc.adaptiveThreshold(mGray, mGray, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 11, 2);
+                Imgproc.adaptiveThreshold(mGray, mGray, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 51, 25);
 
 
-                if (Core.countNonZero(mGray) > 400)
-                    gabarito[i][j]=true;
+                if (Core.countNonZero(mGray) > (mGray.cols() * mGray.rows() * 0.905))
+                    gabarito[i][j] = true;
                 else
-                    gabarito[i][j]=false;
+                    gabarito[i][j] = false;
             }
         }
         return gabarito;
     }
-    private boolean[][] getSets3(Mat m_){
-        Mat m=new Mat();
-        Size size = new Size();
-        Imgproc.GaussianBlur(m_,m, size, 0.0001);
+    private boolean[][] getSets3(Mat m){
         int x1,x2,x3,x4,y1,y2,y3,y4;
-        //p1 p2
-        //p3 p4
         y1=(int)(7.8/13*m.width());
         y2=(int)(7.8/13*m.width());
         y3=(int)(12.5/13*m.width());
@@ -308,13 +295,10 @@ public class Main2Activity extends AppCompatActivity {
                 Mat roi = new Mat(m,rect);
                 Mat mGray = new Mat(roi.rows(), roi.cols(), CvType.CV_8UC1);
                 Imgproc.cvtColor(roi, mGray, Imgproc.COLOR_BGRA2GRAY);
-                mGray.convertTo(mGray, CvType.CV_8UC1, 255.0);
-                //Core.extractChannel(roi, aux,2);
-                mGray.convertTo(mGray, CvType.CV_8UC1, 255.0);
-                Imgproc.adaptiveThreshold(mGray, mGray, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 11, 2);
+                Imgproc.adaptiveThreshold(mGray, mGray, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 51, 25);
 
 
-                if (Core.countNonZero(mGray) > 400)
+                if (Core.countNonZero(mGray) > (mGray.cols()*mGray.rows()*0.905))
                     gabarito[i][j]=true;
                 else
                     gabarito[i][j]=false;
@@ -322,7 +306,7 @@ public class Main2Activity extends AppCompatActivity {
         }
         return gabarito;
     }
-    private Point computeIntersect(LinkedList<Integer> a, LinkedList<Integer>  b)
+    private Point computeIntersect(LinkedList<Integer> a, LinkedList<Integer>  b, Mat m)
     {
 
         int x1 = a.get(0);
@@ -330,6 +314,17 @@ public class Main2Activity extends AppCompatActivity {
         int x2 = a.get(2);
         int y2 = a.get(3);
         int x3 = b.get(0), y3 = b.get(1), x4 = b.get(2), y4 = b.get(3);
+
+
+        boolean aux= ((x1 < m.width()/2|| x2 < m.width()/2)&&(x3 < m.width()/2|| x4 < m.width()/2));
+        aux=aux||((x1>m.width()/2|| x2 > m.width()/2)&&(x3 > m.width()/2|| x4 > m.width()/2));
+        boolean aux2= ((y1 <m.height()/2|| y2 <m.height()/2)&&(y3 <m.height()/2|| y4 <m.height()/2));
+        aux2=aux2||((y1 >m.height()/2|| y2 >m.height()/2)&&(y3 >m.height()/2|| y4 >m.height()/2));
+        if(!(aux&&aux2)){
+            return new Point(-1, -1);
+        }
+
+
          	float d = ((float)(x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4));
 
 
@@ -342,14 +337,14 @@ public class Main2Activity extends AppCompatActivity {
             } else
          		return new Point(-1, -1);
     }
-    private LinkedList<Point> getCorners(  LinkedList<LinkedList<Integer>> lines)
+    private LinkedList<Point> getCorners(  LinkedList<LinkedList<Integer>> lines,Mat m)
     {
         LinkedList<Point> corners= new LinkedList<>();
          	for (int i = 0; i < lines.size(); i++)
          	{
          		for (int j = i+1; j < lines.size(); j++)
             	{
-             			Point pt = computeIntersect(lines.get(i), lines.get(j));
+             			Point pt = computeIntersect(lines.get(i), lines.get(j),m);
              			if (pt.x >= 0 && pt.y >= 0)
                  				corners.add(pt);}
          	}
